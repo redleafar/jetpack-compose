@@ -1,8 +1,12 @@
 package com.example.composetutorial
 
+import android.content.res.Configuration.UI_MODE_NIGHT_YES
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -11,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.composetutorial.ui.theme.ComposeTutorialTheme
@@ -79,8 +84,18 @@ fun Greeting(name: String) {
 
     // Using rememberSaveable instead of remember, the state will survive with configurations changes
     // such as rotations or changing to dark mode
-    val expanded = rememberSaveable { mutableStateOf(false) }
-    val extraPadding = if (expanded.value) 48.dp else 0.dp
+    var expanded by rememberSaveable { mutableStateOf(false) }
+
+    // Any animation created with animate*AsState is interruptible. This means that if the target
+    // value changes in the middle of the animation, animate*AsState restarts the animation and
+    // points to the new value. Interruptions look especially natural with spring-based animations
+    val extraPadding by animateDpAsState(
+        if (expanded) 48.dp else 0.dp,
+        animationSpec = spring(
+            dampingRatio = Spring.DampingRatioMediumBouncy,
+            stiffness = Spring.StiffnessLow
+        )
+    )
 
     // The composable function will automatically be "subscribed" to the state. If the state
     // changes, composables that read these fields will be recomposed to display the updates
@@ -95,14 +110,28 @@ fun Greeting(name: String) {
             // there are dozen of modifiers
             Column(modifier = Modifier
                 .weight(1f)
-                .padding(bottom = extraPadding)
+                // This is to avoid a crash as the animation can make the padding negative
+                .padding(bottom = extraPadding.coerceAtLeast(0.dp))
             ) {
                 Text(text = "Hello,")
-                Text(text = name)
+                // Because the theme wraps MaterialTheme
+                // from any descendant composable you can retrieve three properties of
+                // MaterialTheme: colors, typography and shapes
+
+                // In general it's much better to keep your colors, shapes and font styles inside a MaterialTheme.
+                // For example, dark mode would be hard to implement if you hard-code colors and it would require
+                // a lot of error-prone work to fix. However sometimes you need to deviate slightly from the
+                // selection of colors and font styles. In those situations it's better to base your color or style on an existing one.
+                // You can modify a predefined style by using copy
+                Text(text = name,
+                    style = MaterialTheme.typography.h4.copy(
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                )
             }
-            OutlinedButton(onClick = { expanded.value = !expanded.value }) {
+            OutlinedButton(onClick = { expanded = !expanded }) {
                 Text(
-                    if (expanded.value)
+                    if (expanded)
                         "Show less"
                     else "Show more"
                 )
@@ -119,6 +148,12 @@ fun Greeting(name: String) {
 // ordering in which the code is executed, or on how many times this function will be recomposed
 
 //@Preview is used to use Android Studio Preview
+@Preview(
+    showBackground = true,
+    widthDp = 320,
+    uiMode = UI_MODE_NIGHT_YES,
+    name = "DefaultPreviewDark"
+)
 @Preview(showBackground = true, widthDp = 320)
 @Composable
 fun DefaultPreview() {
